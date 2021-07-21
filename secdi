@@ -27,8 +27,6 @@ branchOps = {
 
 builtins = [ 'println' ]
 
-MAXSTEP = 400
-
 NoEffect = 'No effect'
 
 
@@ -212,6 +210,7 @@ def parseArgs(argv):
     parser = argparse.ArgumentParser(description='SECD interpreter')
     parser.add_argument('infile', type=argparse.FileType('r'), help='input file')
     parser.add_argument('-i', '--interactive', action='store_true', help='interactive mode')
+    parser.add_argument('-m', '--maxstep', type=int, default=1000, help='max steps')
     return parser.parse_args()
 
 
@@ -222,19 +221,25 @@ if __name__ == "__main__":
     interp = Interpreter(code)
 
     if not args.interactive:
-        step = 0
-        while not interp.halted:
-            interp.advance()
-            step += 1
-            if step > MAXSTEP:
-                print(f'ABORTED. Last dump:\n')
-                print(interp.visualizeDump())
-                print(interp.visualizeAllEffects())
-                exit(1)
-        print(f'HALTED. Halting dump:\n')
-        print(interp.visualizeDump())
-        print(interp.visualizeAllEffects())
-        exit(0)
+        try:
+            step = 0
+            while not interp.halted:
+                interp.advance()
+                step += 1
+                if step > args.maxstep:
+                    print(f'ABORTED. Last dump:\n')
+                    print(interp.visualizeDump())
+                    print(interp.visualizeAllEffects())
+                    exit(1)
+            print(f'HALTED. Steps={interp.stepsTaken()}. Halting dump:\n')
+            print(interp.visualizeDump())
+            print(interp.visualizeAllEffects())
+            exit(0)
+        except Exception as e:
+            print('Unexpected exception.', file=sys.stderr)
+            print(interp.visualizeDump(), file=sys.stderr)
+            print(e, file=sys.stderr)
+
 
     else:
         step = 0
