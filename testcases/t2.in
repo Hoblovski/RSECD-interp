@@ -1,0 +1,15 @@
+## (\x. x + 1) 5
+
+main:
+    closure p1
+    const 5
+    apply
+    halt
+
+p1:
+    access $1
+    const 1
+    add
+    return
+
+

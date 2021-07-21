@@ -1,0 +1,36 @@
+## letrec fact n =
+##    if n==0 then 1 else n * (fact (n-1))
+## in fact 6 * fact 8
+
+main:
+    closures p1
+    access $1
+    focus 1
+    const 6
+    applyn
+    access $1
+    focus 1
+    const 8
+    applyn
+    mul
+    halt
+
+p1:
+    access $1
+    const 0 ; eq
+    brfl fl
+  tr:
+    const 1
+    br end
+  fl:
+    access $1
+    access $2
+    focus 1
+    access $1
+    const 1
+    sub
+    applyn
+    mul
+  end:
+    return
+

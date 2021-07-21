@@ -1,0 +1,215 @@
+#!python
+
+from collections import namedtuple
+import argparse
+import sys
+from copy import deepcopy
+from ast import literal_eval
+
+
+SECDDump = namedtuple('SECDDump', ('pc', 'stk', 'env'))
+
+
+
+def clrscr():
+    print("\033[H\033[J")
+
+
+arithOps = {
+    'sub': (2, lambda args: args[0] - args[1]),
+    'add': (2, lambda args: args[0] + args[1]),
+    'mul': (2, lambda args: args[0] * args[1]),
+    'mod': (2, lambda args: args[0] % args[1]),
+    'eq': (2, lambda args: args[0] == args[1]),
+}
+
+branchOps = {
+    'brfl': (1, lambda args: not args[0]),
+    'br': (0, lambda args: True),
+}
+
+MAXSTEP = 400
+
+class Interpreter:
+    def __init__(self, code):
+        coms = [l.strip() for l in
+                code.replace('##', '\n#').replace(';', '\n').split('\n')]
+        self.coms = [l for l in coms if len(l) != 0 and not l.startswith('#')]
+        def indent(com):
+            return '' if com.endswith(':') else '    '
+        self.code = [f'  {i:< 4}: {indent(com)}{com}' for i, com in enumerate(self.coms)]
+        self.labelToPc = { com[:-1]: pc
+                for pc, com in enumerate(self.coms) if com.endswith(':') }
+        self.dmps = [ SECDDump(pc=self.labelToPc['main'], stk=[], env=[]) ]
+        self.halted = False
+
+    def stepsTaken(self):
+        return len(self.dmps) - 1
+
+    def advance(self):
+        if self.halted:
+            return
+        nextDump = self.step(deepcopy(self.dmps[-1]))
+        if nextDump != 'halted':
+            self.dmps.append(nextDump)
+        else:
+            self.halted = True
+
+    def step(self, dmp):
+        """
+        Caller makes sure that `dmp` is not aliased with old dumps
+        """
+        pc, stk, env = dmp
+        com = self.coms[pc]
+        op, *args = com.split()
+
+        if com.endswith(':'):
+            pc += 1
+            return SECDDump(pc, stk, env)
+
+        if op == 'access':
+            pc += 1
+            sel = args[0][1:]
+            envIdx = int(sel)
+            stk += [env[-envIdx]]
+            return SECDDump(pc, stk, env)
+
+        if op == 'closure':
+            pc += 1
+            stk += [(self.labelToPc[args[0]], env)]
+            return SECDDump(pc, stk, env)
+
+        if op == 'return':
+            v, pc1, env1, stk = stk[-1], stk[-2], stk[-3], stk[:-3]
+            env = env1
+            pc = pc1
+            stk = stk + [v]
+            return SECDDump(pc, stk, env)
+
+        if op == 'halt':
+            return 'halted'
+
+        if op == 'closures':
+            pc += 1
+            env = env + [(None, tuple(self.labelToPc[arg] for arg in args), env)]
+            return SECDDump(pc, stk, env)
+
+        if op == 'focus':
+            pc += 1
+            (_, fns, env1), stk = stk[-1], stk[:-1]
+            stk = stk + [(int(args[0]), fns, env1)]
+            return SECDDump(pc, stk, env)
+
+        if op in {'apply', 'applyn'}:
+            if len(stk[-2]) == 2:
+                v, (pc1, env1), stk = stk[-1], stk[-2], stk[:-2]
+                stk = stk + [env, pc+1]
+                env = env1 + [v]
+                pc = pc1
+                return SECDDump(pc, stk, env)
+            else:
+                v, (idx, fns, env1), stk = stk[-1], stk[-2], stk[:-2]
+                stk = stk + [env, pc+1]
+                env = env1 + [(None, fns, env1), v]
+                pc = fns[idx-1]
+                return SECDDump(pc, stk, env)
+
+        return self.trivialStep(op, args, pc, stk, env)
+
+    def trivialStep(self, op, args, pc, stk, env):
+        if op == 'const':
+            pc += 1
+            arg = literal_eval(args[0])
+            stk += [arg]
+            return SECDDump(pc, stk, env)
+
+        if op in arithOps:
+            pc += 1
+            arity, fn = arithOps[op]
+            fargs, stk = stk[-arity:], stk[:-arity]
+            stk = stk + [fn(fargs)]
+            return SECDDump(pc, stk, env)
+
+        if op in branchOps:
+            arity, fn = branchOps[op]
+            if op != 'br':
+                fargs, stk = stk[-arity:], stk[:-arity]
+                taken = fn(fargs)
+            else:
+                taken = True
+            if taken:
+                pc = self.labelToPc[args[0]]
+            else:
+                pc += 1
+            return SECDDump(pc, stk, env)
+
+        # in case of inspection, just raise an exception to print stk
+        raise Exception(f'bad op {op}, args={args}, stk={stk}')
+
+    def visualizeDump(self, stepIdx=-1):
+        pc, stk, env = self.dmps[stepIdx]
+        res = ''
+
+        res += '--- pc\n'
+        progStr = '\n'.join(self.code[:pc] +\
+                        ['> ' + self.code[pc][2:]] +\
+                        self.code[pc+1:])
+        res += f'{progStr}\n'
+
+        res += '--- stk (from bottom to top)\n'
+        stkStr = '\n'.join(str(x) for x in stk)
+        res += f'{stkStr}\n'
+
+        res += '--- env (from bottom to top)\n'
+        envStr = '\n'.join(str(x) for x in env)
+        res += f'{envStr}\n'
+
+        return res
+
+
+def parseArgs(argv):
+    parser = argparse.ArgumentParser(description='SECD interpreter')
+    parser.add_argument('infile', type=argparse.FileType('r'), help='input file')
+    parser.add_argument('-i', '--interactive', action='store_true', help='interactive mode')
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parseArgs(sys.argv)
+
+    code = args.infile.read()
+    interp = Interpreter(code)
+
+    if not args.interactive:
+        step = 0
+        while not interp.halted:
+            interp.advance()
+            step += 1
+            if step > MAXSTEP:
+                print(f'ABORTED. Last dump:\n')
+                print(interp.visualizeDump())
+                exit(1)
+        print(f'HALTED. Halting dump:\n')
+        print(interp.visualizeDump())
+        exit(0)
+
+    else:
+        step = 0
+        while True:
+            step = max(0, min(interp.stepsTaken(), step))
+            clrscr()
+            print(f'--- Step: {step}\n')
+            print(interp.visualizeDump(step))
+
+            cmd = None
+            while cmd not in {'n', 'p', '', 'q'}:
+                cmd = input()
+
+            if cmd == 'q':
+                exit(0)
+            elif cmd == 'p':
+                step -= 1
+            elif cmd in {'', 'n'}:
+                step += 1
+                if step > interp.stepsTaken():
+                    interp.advance()

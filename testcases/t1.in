@@ -1,0 +1,26 @@
+## (\f. f 22 10) (\x -> \y -> x-y)
+
+main:
+    closure p1
+    closure p2
+    apply
+    halt
+
+p1:
+    access $1
+    const 22
+    apply
+    const 10
+    apply
+    return
+
+p2:
+    closure p3
+    return
+
+p3:
+    access $2
+    access $1
+    sub
+    return
+

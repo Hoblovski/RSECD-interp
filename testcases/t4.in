@@ -1,0 +1,40 @@
+## ((\g -> ((\f -> g f) (\x -> \y -> x-y))) (\x -> x 22)) 10
+## Fancy subtraction
+
+main:
+    closure p1
+    closure p2
+    apply
+    const 10
+    apply
+    halt
+
+p1:
+    closure p3
+    closure p4
+    apply
+    return
+
+p2:
+    access $1
+    const 22
+    apply
+    return
+
+p3:
+    access $2
+    access $1
+    apply
+    return
+
+p4:
+    closure p5
+    return
+
+p5:
+    access $2
+    access $1
+    sub
+    return
+
+

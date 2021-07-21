@@ -1,0 +1,31 @@
+## letrec add x =
+##     \y -> if x == 0 then y else 1 + add (x-1) y
+## in
+##     add 11 23
+
+main:
+    closures p1
+    access $1 ; focus 1
+    const 11 ; applyn
+    const 23 ; apply
+    halt
+
+p1:
+    closure p2
+    return
+
+p2:
+    access $2 ; const 0 ; eq
+    brfl fl
+  tr:
+    access $1
+    br end
+  fl:
+    const 1
+    access $3 ; focus 1
+    access $2 ; const 1 ; sub
+    applyn
+    access $1 ; apply
+    add
+  end:
+    return

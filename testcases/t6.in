@@ -1,0 +1,23 @@
+## (\x -> if x==0 then 1 else x-1) 5
+
+main:
+    closure p1
+    const 5
+    apply
+    halt
+
+p1:
+    access $1
+    const 0
+    eq
+    brfl fl
+  tr:
+    const 1
+    br end
+  fl:
+    access $1
+    const 1
+    sub
+  end:
+    return
+

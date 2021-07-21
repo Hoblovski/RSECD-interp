@@ -1,0 +1,21 @@
+## (\f. f 12) (\x. x+1)
+
+main:
+    closure p1
+    closure p2
+    apply
+    halt
+
+p1:
+    access $1
+    const 12
+    apply
+    return
+
+p2:
+    access $1
+    const 1
+    add
+    return
+
+

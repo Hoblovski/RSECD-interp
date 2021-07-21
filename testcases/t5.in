@@ -1,0 +1,18 @@
+## letrec f x = f x in f 0
+## DIVERGING
+
+main:
+    closures p1
+    access $1
+    focus 1
+    const 0
+    applyn
+    return
+
+p1:
+    access $2
+    focus 1
+    access $1
+    applyn
+    return
+
