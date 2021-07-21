@@ -9,11 +9,8 @@ from ast import literal_eval
 
 SECDDump = namedtuple('SECDDump', ('pc', 'stk', 'env'))
 
-
-
 def clrscr():
     print("\033[H\033[J")
-
 
 arithOps = {
     'sub': (2, lambda args: args[0] - args[1]),
@@ -28,7 +25,12 @@ branchOps = {
     'br': (0, lambda args: True),
 }
 
+builtins = [ 'println' ]
+
 MAXSTEP = 400
+
+NoEffect = 'No effect'
+
 
 class Interpreter:
     def __init__(self, code):
@@ -41,6 +43,7 @@ class Interpreter:
         self.labelToPc = { com[:-1]: pc
                 for pc, com in enumerate(self.coms) if com.endswith(':') }
         self.dmps = [ SECDDump(pc=self.labelToPc['main'], stk=[], env=[]) ]
+        self.effects = [ NoEffect ]     # effect i: effects taken when reached step i
         self.halted = False
 
     def stepsTaken(self):
@@ -49,11 +52,13 @@ class Interpreter:
     def advance(self):
         if self.halted:
             return
-        nextDump = self.step(deepcopy(self.dmps[-1]))
+        nextDump, nextEffect = self.step(deepcopy(self.dmps[-1]))
         if nextDump != 'halted':
             self.dmps.append(nextDump)
+            self.effects.append(nextEffect)
         else:
             self.halted = True
+
 
     def step(self, dmp):
         """
@@ -65,62 +70,83 @@ class Interpreter:
 
         if com.endswith(':'):
             pc += 1
-            return SECDDump(pc, stk, env)
+            return SECDDump(pc, stk, env), NoEffect
 
         if op == 'access':
             pc += 1
             sel = args[0][1:]
             envIdx = int(sel)
             stk += [env[-envIdx]]
-            return SECDDump(pc, stk, env)
+            return SECDDump(pc, stk, env), NoEffect
 
         if op == 'closure':
             pc += 1
-            stk += [(self.labelToPc[args[0]], env)]
-            return SECDDump(pc, stk, env)
+            stk += [(self.labelToPc[args[0]], (), env)]
+            return SECDDump(pc, stk, env), NoEffect
 
         if op == 'return':
             v, pc1, env1, stk = stk[-1], stk[-2], stk[-3], stk[:-3]
             env = env1
             pc = pc1
             stk = stk + [v]
-            return SECDDump(pc, stk, env)
+            return SECDDump(pc, stk, env), NoEffect
 
         if op == 'halt':
-            return 'halted'
+            return 'halted', NoEffect
 
         if op == 'closures':
             pc += 1
             env = env + [(None, tuple(self.labelToPc[arg] for arg in args), env)]
-            return SECDDump(pc, stk, env)
+            return SECDDump(pc, stk, env), NoEffect
 
         if op == 'focus':
             pc += 1
+            idx = int(args[0])
             (_, fns, env1), stk = stk[-1], stk[:-1]
-            stk = stk + [(int(args[0]), fns, env1)]
-            return SECDDump(pc, stk, env)
+            stk = stk + [(fns[idx-1], fns, env1)]
+            return SECDDump(pc, stk, env), NoEffect
 
         if op in {'apply', 'applyn'}:
-            if len(stk[-2]) == 2:
-                v, (pc1, env1), stk = stk[-1], stk[-2], stk[:-2]
-                stk = stk + [env, pc+1]
-                env = env1 + [v]
-                pc = pc1
-                return SECDDump(pc, stk, env)
-            else:
-                v, (idx, fns, env1), stk = stk[-1], stk[-2], stk[:-2]
-                stk = stk + [env, pc+1]
-                env = env1 + [(None, fns, env1), v]
-                pc = fns[idx-1]
-                return SECDDump(pc, stk, env)
+            v, (fn, fns, env1), stk = stk[-1], stk[-2], stk[:-2]
 
-        return self.trivialStep(op, args, pc, stk, env)
+            if fn in builtins:
+                retval, effect = self.builtinStep(fn, v)
+                pc += 1
+                stk = stk + [retval]
+                return SECDDump(pc, stk, env), effect
+
+            stk = stk + [env, pc+1]
+            pc = fn
+            env = env1
+            if len(fns) > 0:
+                env = env + [(None, fns, env1)]
+            env = env + [v]
+            return SECDDump(pc, stk, env), NoEffect
+
+        if op == 'builtin':
+            pc += 1
+            stk = stk + [(args[0], (), None)]
+            return SECDDump(pc, stk, env), NoEffect
+
+        return self.trivialStep(op, args, pc, stk, env), NoEffect
+
+
+    def builtinStep(self, fn, v):
+        if fn == 'println':
+            return (), f'PRINT: {v}'
+
 
     def trivialStep(self, op, args, pc, stk, env):
         if op == 'const':
             pc += 1
             arg = literal_eval(args[0])
             stk += [arg]
+            return SECDDump(pc, stk, env)
+
+        if op == 'pop':
+            pc += 1
+            arg = int(args[0])
+            stk = stk[:-arg]
             return SECDDump(pc, stk, env)
 
         if op in arithOps:
@@ -146,6 +172,7 @@ class Interpreter:
         # in case of inspection, just raise an exception to print stk
         raise Exception(f'bad op {op}, args={args}, stk={stk}')
 
+
     def visualizeDump(self, stepIdx=-1):
         pc, stk, env = self.dmps[stepIdx]
         res = ''
@@ -166,6 +193,20 @@ class Interpreter:
 
         return res
 
+    def visualizeEffect(self, stepIdx=-1):
+        res = ''
+        res += '--- effect\n'
+        effStr = self.effects[stepIdx]
+        res += f'{effStr}\n'
+        return res
+
+    def visualizeAllEffects(self):
+        res = ''
+        res += f'--- all effects:\n'
+        for effect in interp.effects:
+            if effect != NoEffect:
+                res += effect + '\n'
+        return res
 
 def parseArgs(argv):
     parser = argparse.ArgumentParser(description='SECD interpreter')
@@ -188,9 +229,11 @@ if __name__ == "__main__":
             if step > MAXSTEP:
                 print(f'ABORTED. Last dump:\n')
                 print(interp.visualizeDump())
+                print(interp.visualizeAllEffects())
                 exit(1)
         print(f'HALTED. Halting dump:\n')
         print(interp.visualizeDump())
+        print(interp.visualizeAllEffects())
         exit(0)
 
     else:
@@ -200,6 +243,7 @@ if __name__ == "__main__":
             clrscr()
             print(f'--- Step: {step}\n')
             print(interp.visualizeDump(step))
+            print(interp.visualizeEffect(step))
 
             cmd = None
             while cmd not in {'n', 'p', '', 'q'}:

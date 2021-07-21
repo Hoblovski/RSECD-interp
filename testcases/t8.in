@@ -1,24 +1,34 @@
 ## letrec even n = if n == 0 then True else odd (n-1)
 ##    and odd  n = if n == 0 then False else even (n-1)
 ## in
-##     _inspect (even 5) (even 6) (odd 4) (odd 5)
+##     println (even 5) ;
+##     println (even 6) ;
+##     println (odd 4) ;
+##     println (odd 5)
 
 main:
     closures p1 p2
+    builtin println
     access $1 ; focus 1
     const 5
     applyn
+    apply ; pop 1
+    builtin println
     access $1 ; focus 1
     const 6
     applyn
+    apply ; pop 1
+    builtin println
     access $1 ; focus 2
     const 4
     applyn
+    apply ; pop 1
+    builtin println
     access $1 ; focus 2
     const 5
     applyn
-    _inspect
-    return
+    apply ; pop 1
+    halt
 
 p1:
     access $1 ; const 0 ; eq
