@@ -26,18 +26,22 @@ Only instructions are listed; their semantics should be obvious given the `step`
 
 All closures take exactly one argument (use currying for more), which is put into their environment upon invocation.
 
+The closures have a uniform representation, whether they are recursive: `(fn, fns, env)`.
+The `fn` is the program counter of the closure; `fns` are the functions that may be mutually recursive to `fn`;
+`env` is the environment saved when the closure was created (and will be restored upon closure invocation).
+For example, a non-recursive closure would have `fns` empty. The `fn` may be empty, in case of mutually recursive closures not focused yet.
+
 These are core instructions:
 
 | instr | meaning | notes |
 | --- | --- | --- |
 | `access $n` | load the `n`th variable from environment | `n`: positive integer |
-| `closure label` | create non-recursive closure, the code is at `label` | |
-| `apply` | apply the non-recursive closure with the argument which are on top of the stack | |
-| `return` | return from closure; the return value is at the top of the stack | |
-| `halt` | we're done | |
-| `closures l1 l2...` | create a group(>=1) of mutually recursive closures | created on environment |
-| `focus n` | with a group of closures, focus on one (so it turns into 'one' closure ready for invocation) | `n`: positive integer |
-| `applyn` | apply the (already focused) recursive closure with the argument. | |
+| `closure label` | create non-recursive closure **onto stack**, the code is at `label` | |
+| `closures l1 l2...` | create a group(>=1) of mutually recursive closures **onto environment** | |
+| `apply` | apply the closure with the argument which are on top of the stack | |
+| `return` | return from closure; the return value is at the top of the stack | restores environment and pc |
+| `halt` | we're done | usually the return value of the program is on top of the stack |
+| `focus n` | with a group of closures on top of the stack, focus on one (so it turns into 'one' closure ready for invocation) | `n`: positive integer |
 
 These should be obvious
 

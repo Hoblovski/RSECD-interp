@@ -6,7 +6,7 @@
 main:
     closures p1
     access $1 ; focus 1
-    const 11 ; applyn
+    const 11 ; apply
     const 23 ; apply
     halt
 
@@ -24,7 +24,7 @@ p2:
     const 1
     access $3 ; focus 1
     access $2 ; const 1 ; sub
-    applyn
+    apply
     access $1 ; apply
     add
   end:

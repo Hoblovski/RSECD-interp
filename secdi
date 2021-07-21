@@ -104,7 +104,7 @@ class Interpreter:
             stk = stk + [(fns[idx-1], fns, env1)]
             return SECDDump(pc, stk, env), NoEffect
 
-        if op in {'apply', 'applyn'}:
+        if op == 'apply':
             v, (fn, fns, env1), stk = stk[-1], stk[-2], stk[:-2]
 
             if fn in builtins:

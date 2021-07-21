@@ -7,11 +7,11 @@ main:
     access $1
     focus 1
     const 6
-    applyn
+    apply
     access $1
     focus 1
     const 8
-    applyn
+    apply
     mul
     halt
 
@@ -29,7 +29,7 @@ p1:
     access $1
     const 1
     sub
-    applyn
+    apply
     mul
   end:
     return

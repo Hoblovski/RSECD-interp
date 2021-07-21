@@ -11,22 +11,22 @@ main:
     builtin println
     access $1 ; focus 1
     const 5
-    applyn
+    apply
     apply ; pop 1
     builtin println
     access $1 ; focus 1
     const 6
-    applyn
+    apply
     apply ; pop 1
     builtin println
     access $1 ; focus 2
     const 4
-    applyn
+    apply
     apply ; pop 1
     builtin println
     access $1 ; focus 2
     const 5
-    applyn
+    apply
     apply ; pop 1
     halt
 
@@ -39,7 +39,7 @@ p1:
   fl1:
     access $2 ; focus 2
     access $1 ; const 1 ; sub
-    applyn
+    apply
   end1:
     return
 
@@ -52,7 +52,7 @@ p2:
   fl2:
     access $2 ; focus 1
     access $1 ; const 1 ; sub
-    applyn
+    apply
   end2:
     return
 

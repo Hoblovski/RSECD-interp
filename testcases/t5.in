@@ -6,13 +6,13 @@ main:
     access $1
     focus 1
     const 0
-    applyn
+    apply
     return
 
 p1:
     access $2
     focus 1
     access $1
-    applyn
+    apply
     return
 
