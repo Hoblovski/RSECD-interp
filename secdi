@@ -79,7 +79,7 @@ class Interpreter:
 
         if op == 'access':
             pc += 1
-            sel = args[0][1:]
+            sel = args[0]
             envIdx = int(sel)
             stk += [env[-envIdx]]
             return SECDDump(pc, stk, env), NoEffect
