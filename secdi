@@ -133,6 +133,12 @@ class Interpreter:
             stk = stk + [(args[0], (), None)]
             return SECDDump(pc, stk, env), NoEffect
 
+        if op == 'pushenv':
+            pc += 1
+            v, stk = stk[-1], stk[:-1]
+            env = env + [v]
+            return SECDDump(pc, stk, env), NoEffect
+
         return self.trivialStep(op, args, pc, stk, env), NoEffect
 
 
