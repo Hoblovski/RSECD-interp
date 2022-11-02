@@ -32,7 +32,7 @@ branchOps = {
     'br': (0, lambda args: True),
 }
 
-builtins = [ 'println' ]
+builtins = [ 'println', 'print' ]
 
 NoEffect = 'No effect'
 
@@ -50,6 +50,30 @@ class Interpreter:
         self.dmps = [ SECDDump(pc=self.labelToPc['main'], stk=[], env=[]) ]
         self.effects = [ NoEffect ]     # effect i: effects taken when reached step i
         self.halted = False
+
+    def briefAllEffects(self):
+        res = ''
+        for eff in self.effects:
+            if eff == NoEffect:
+                continue
+            if eff.startswith('PRINTLN: '):
+                res += f'{eff[9:]}\n'
+            elif eff.startswith('PRINT: '):
+                res += f'{eff[7:]}'
+            else:
+                raise Exception(f'unrecognized effect: {eff}')
+        return res
+
+    def briefReturnValue(self):
+        stk = self.dmps[-1].stk
+        if len(stk) != 1:
+            raise Exception(f'not proper exit with value, len(stk) = {len(stk)}')
+        top = stk[0]
+        if top == ():
+            return str(top)
+        if any(isinstance(top, allowedTy) for allowedTy in [int]):
+            return str(top)
+        raise Exception(f'return value {top} is not of allowed type')
 
     def stepsTaken(self):
         return len(self.dmps) - 1
@@ -166,6 +190,16 @@ class Interpreter:
                 out = f'closure< {out} >'
             except (IndexError, AssertionError, TypeError):
                 pass
+            return (), f'PRINTLN: {out}'
+        elif fn == 'print':
+            out = str(v)
+            try:
+                assert isinstance(v[0], int)
+                assert isinstance(v[1], tuple)
+                assert isinstance(v[2], list)
+                out = f'closure< {out} >'
+            except (IndexError, AssertionError, TypeError):
+                pass
             return (), f'PRINT: {out}'
 
 
@@ -211,9 +245,13 @@ class Interpreter:
         res = ''
 
         res += '--- pc\n'
-        progStr = '\n'.join(self.code[:pc] +\
+        max_before = 10
+        max_after = 15
+        low = max(0, pc - max_before)
+        high = min(len(self.code), pc + max_after)
+        progStr = '\n'.join(self.code[low:pc] +\
                         ['> ' + self.code[pc][2:]] +\
-                        self.code[pc+1:])
+                        self.code[pc+1:high])
         res += f'{progStr}\n'
 
         res += '--- stk (from bottom to top)\n'
@@ -245,6 +283,7 @@ def parseArgs(argv):
     parser = argparse.ArgumentParser(description='SECD interpreter')
     parser.add_argument('infile', type=argparse.FileType('r'), help='input file')
     parser.add_argument('-i', '--interactive', action='store_true', help='interactive mode')
+    parser.add_argument('-b', '--brief', action='store_true', help='report results briefly')
     parser.add_argument('-m', '--maxstep', type=int, default=1000, help='max steps')
     return parser.parse_args()
 
@@ -255,7 +294,26 @@ if __name__ == "__main__":
     code = args.infile.read()
     interp = Interpreter(code)
 
-    if not args.interactive:
+    if args.brief:
+        try:
+            step = 0
+            while not interp.halted:
+                interp.advance()
+                step += 1
+                if step > args.maxstep:
+                    print(f'ABORTED. Last dump:\n')
+                    print(interp.visualizeDump())
+                    print(interp.visualizeAllEffects())
+                    exit(1)
+            print(interp.briefAllEffects(), end='')
+            print(interp.briefReturnValue())
+            exit(0)
+        except Exception as e:
+            print('Unexpected exception.', file=sys.stderr)
+            print(interp.visualizeDump(), file=sys.stderr)
+            print(e, file=sys.stderr)
+
+    elif not args.interactive:
         try:
             step = 0
             while not interp.halted:
